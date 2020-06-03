@@ -25,15 +25,16 @@ You need these dependencies (run in shell/command line)
 ```{shell}
 pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
 ```
+Other necessary dependencies includes: `urllib beautifulsoup4 tkinter email`, which you may already have in your environment.
 
 ### Step 2
 You will want to visit [Gmail API Python Quickstart](https://developers.google.com/gmail/api/quickstart/python).  
   
 Click on the button "*Enable the Gmail API*" under "*Step 1*", and download the 
 client configuration and save the file `credentials.json` to your working 
-directory.  
+directory. And then you can start to try out the `core.py` script.  
   
-During the first time you run this script, the browser will be open and you 
+During the first time you run it, the browser will be open and you 
 will login to your Google account and complete the authorization.  
   
 As there will be a file `token.pickle` created to save the authorized 
@@ -44,9 +45,5 @@ as you don't modify this file.
 For now, modify email address as you need in `core.py` and run it.  
 
 ## Devel Note
-Currently, the UI only contains basic appearance.
-
-## Future plan
-The git tracker part will be changed to standard API soon. I know "web crawler" style is stupid.
-
-
+- Now Basic UI appearance is there, yet not functionalized.  
+- Periodical check is muten for now, and it runs only one check and quit.  
