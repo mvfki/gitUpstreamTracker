@@ -41,6 +41,12 @@ credentials, you will no longer need to do this again in the future, as long
 as you don't modify this file.  
 
 ### Step 3
-For now, modify email address as you need in `draft.py` and run it.  
+For now, modify email address as you need in `core.py` and run it.  
+
+## Devel Note
+Currently, the UI only contains basic appearance.
+
+## Future plan
+The git tracker part will be changed to standard API soon. I know "web crawler" style is stupid.
 
 
