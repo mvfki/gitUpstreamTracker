@@ -17,7 +17,7 @@ def getNCommit(owner, repo, branch='master'):
     '''Using a BS4 method to make this crawler process readable.'''
     url = makeURL(owner, repo, branch)
     html = urlopen(url).read().decode('utf-8')
-    soup = BeautifulSoup(html)
+    soup = BeautifulSoup(html, features="lxml")
     allSpan = soup.findAll("span", {"class": ["num", "text-emphasized"]})
     nCommit = int(allSpan[0].text.strip().replace(',', ''))
     return nCommit
@@ -54,4 +54,3 @@ if __name__ == "__main__":
     sender_email = 'wangych0428@gmail.com'    
     periodicalCatcher(upstreamRepoOwner, upstreamRepoName, sender_email, 
                       receiver_email, upstreamRepoBranch)
-
