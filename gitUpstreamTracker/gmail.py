@@ -63,7 +63,8 @@ def CreateMessage(sender, to, subject, message_text):
     message['to'] = to
     message['from'] = sender
     message['subject'] = subject
-    return {'raw': base64.urlsafe_b64encode(message.as_string().encode()).decode()}
+    message = message.as_string().encode()
+    return {'raw': base64.urlsafe_b64encode(message).decode()}
 
 def SendMessage(service, user_id, message):
     """Send an email message.
@@ -84,3 +85,10 @@ def SendMessage(service, user_id, message):
       return message
     except errors.HttpError as error:
       print('An error occurred: %s' % error)
+
+def oath2Gmail(message, sender, receiver):
+    """Final wrapper of the above"""
+    subject = 'gitUpstreamTracker Message'
+    service = get_credentials()
+    msg = CreateMessage(sender, receiver, subject, message)
+    SendMessage(service, 'me', msg)

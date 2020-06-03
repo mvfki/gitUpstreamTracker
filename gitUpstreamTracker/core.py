@@ -6,40 +6,30 @@ Created on Tue Jun  2 14:13:43 2020
 """
 from urllib.request import urlopen
 import time
-from gmail import get_credentials, CreateMessage, SendMessage
+from gmail import oath2Gmail
+from bs4 import BeautifulSoup
 
 # Git commit detecting part
 def makeURL(owner, repo, branch='master'):
-    return 'https://github.com/' + owner + '/' + repo + '/tree/' + branch
+    return f'https://github.com/{owner}/{repo}/tree/{branch}'
 
-def getBody(url):
+def getNCommit(owner, repo, branch='master'):
+    '''Using a BS4 method to make this crawler process readable.'''
+    url = makeURL(owner, repo, branch)
     html = urlopen(url).read().decode('utf-8')
-    return html
-
-def getNCommit(html):
-    '''Using a straight forward way to read the HTML text and find the 
-    number-string that is displayed on the web page'''
-    s = html.split('<li class="commits">')[1].split('span')[1]
-    nCommit = ''.join([i for i in s if i.isdigit()])
-    nCommit = int(nCommit)
-    return nCommit    
-
-# Gmail sending part. See gmail.py
-def oath2Gmail(message, sender, receiver):
-    subject = 'gitUpstreamTracker Message'
-    service = get_credentials()
-    msg = CreateMessage(sender, receiver, subject, message)
-    SendMessage(service, 'me', msg)
+    soup = BeautifulSoup(html)
+    allSpan = soup.findAll("span", {"class": ["num", "text-emphasized"]})
+    nCommit = int(allSpan[0].text.strip().replace(',', ''))
+    return nCommit
 
 # Main looping part
-def periodicalCatcher(owner, repo, senderEmail, receiverEmail, branch = 'master', interval = 3):
-    url = makeURL(owner, repo, branch)
-    nCommit_Last = getNCommit(getBody(url))
+def periodicalCatcher(owner, repo, senderEmail, receiverEmail, 
+                      branch = 'master', interval = 3):
+    nCommit_Last = getNCommit(owner, repo, branch)
     time.sleep(interval)
     while True:
         try:
-            html = getBody(url)
-            nCommit_Now = getNCommit(html)
+            nCommit_Now = getNCommit(owner, repo, branch)
             if nCommit_Now != nCommit_Last:
                 nNew = nCommit_Now - nCommit_Last
                 print(nNew, 'new commit found!')
@@ -50,6 +40,7 @@ def periodicalCatcher(owner, repo, senderEmail, receiverEmail, branch = 'master'
             oath2Gmail(message, senderEmail, receiverEmail)
             # Currectly incompleted, dont want to run it forever.
             break
+            nCommit_Last = nCommit_Now
             time.sleep(interval)
         except KeyboardInterrupt:
             print("KeyboardInterrupt: Stopped")
@@ -61,6 +52,6 @@ if __name__ == "__main__":
     upstreamRepoBranch = 'devel'
     receiver_email = 'wangych@bu.edu'
     sender_email = 'wangych0428@gmail.com'    
-    periodicalCatcher(upstreamRepoOwner, upstreamRepoName, sender_email, receiver_email, 
-                      upstreamRepoBranch)
+    periodicalCatcher(upstreamRepoOwner, upstreamRepoName, sender_email, 
+                      receiver_email, upstreamRepoBranch)
 
