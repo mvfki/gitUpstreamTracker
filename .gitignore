@@ -1,2 +1,3 @@
 gitUpstreamTracker/credentials.json
 gitUpstreamTracker/token.pickle
+gitUpstreamTracker/__pycache__/*
