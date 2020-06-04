@@ -8,11 +8,7 @@ from urllib.request import urlopen
 import time
 from gmail import oath2Gmail
 from bs4 import BeautifulSoup
-
-def backgroundLoop():
-    while True:
-        print('hi')
-        time.sleep(3)
+import threading
 
 # Git commit detecting part
 def makeURL(owner, repo, branch='master'):
@@ -27,36 +23,29 @@ def getNCommit(owner, repo, branch='master'):
     nCommit = int(allSpan[0].text.strip().replace(',', ''))
     return nCommit
 
-# Main looping part
 def periodicalCatcher(owner, repo, senderEmail, receiverEmail, 
-                      branch = 'master', interval = 3):
-    nCommit_Last = getNCommit(owner, repo, branch)
-    time.sleep(interval)
-    while True:
-        try:
-            nCommit_Now = getNCommit(owner, repo, branch)
-            if nCommit_Now != nCommit_Last:
-                nNew = nCommit_Now - nCommit_Last
-                print(nNew, 'new commit found!')
-                message = f'Hi,\nThere are {str(nNew)} new commits found on {owner}/{repo}/{branch}'
-                oath2Gmail(message, senderEmail, receiverEmail)
-            else:
-                print(nCommit_Now)
-                message = f'Hi,\nthere are currectly {str(nCommit_Now)} commits on {owner}/{repo}/{branch}'
-                print(message)
-            # Currectly incompleted, dont want to run it forever.
-            nCommit_Last = nCommit_Now
-            time.sleep(interval)
-        except KeyboardInterrupt:
-            print("Process Stopped")
-            break    
-        
-if __name__ == "__main__":
-    upstreamRepoOwner = 'mvfki'
-    upstreamRepoName = 'gitUpstreamTracker'
-    upstreamRepoBranch = 'devel'
-    receiver_email = 'wangych@bu.edu'
-    sender_email = 'wangych0428@gmail.com'    
-    periodicalCatcher(upstreamRepoOwner, upstreamRepoName, sender_email, 
-                      receiver_email, upstreamRepoBranch, 5)
-    #backgroundLoop()
+                      branch, interval):
+    try:
+        print("Having an initial check")
+        nCommit_Last = getNCommit(owner, repo, branch)
+        print(nCommit_Last, "commits found")
+        time.sleep(interval)
+        while True:
+            try:
+                nCommit_Now = getNCommit(owner, repo, 
+                                         branch)
+                if nCommit_Now != nCommit_Last:
+                    nNew = nCommit_Now - nCommit_Last
+                    print(nNew, 'new commit found!')
+                    message = f'Hi,\nThere are {str(nNew)} new commits found on {owner}/{repo}/{branch}'
+                    oath2Gmail(message, senderEmail, 
+                               receiverEmail)
+                else:
+                    message = f'Hi,\nthere are currectly {str(nCommit_Now)} commits on {owner}/{repo}/{branch}'
+                    print(message)
+                nCommit_Last = nCommit_Now
+                time.sleep(interval)
+            except KeyboardInterrupt:
+                break
+    except Exception as e:
+        print('Error encountered:', e)
