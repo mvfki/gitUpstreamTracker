@@ -5,7 +5,7 @@ Created on Tue Jun  2 22:42:56 2020
 @author: Yichen Wang
 """
 from tkinter import Tk, Frame, Label, Entry, N, SE, SW, StringVar, Button, FLAT
-from tkinter import Toplevel
+from tkinter import Toplevel, Spinbox
 from tkinter.font import Font
 from process import getNCommit
 from urllib.error import HTTPError
@@ -46,18 +46,18 @@ class UI():
     # Appearance building vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def buildMainWindow(self):
         self.tk.title("gitUpstreamTracker")
-        self.tk.geometry('400x520')
+        self.tk.geometry('400x510')
         centerWindow(self.tk)
         self.tk["bg"] = COLORs['bg']
         self.tk.attributes("-alpha",0.95)
         self.addFrame_repoInfo()
         self.addFrame_senderInfo()
         self.addFrame_receiverInfo()
-        self.addButton()
+        self.addOperationPanel()
         
     def addFrame_repoInfo(self):
         self.repoInfo_frame = Frame(self.tk, bg=COLORs['bg'], width=360, 
-                                    height=190, relief='groove',
+                                    height=180, relief='groove',
                                     highlightbackground=COLORs['frmLine'], 
                                     highlightthickness=1)
         self._setTitleLabel(self.repoInfo_frame, "GitHub Repository to Track")
@@ -85,7 +85,7 @@ class UI():
                                    text="Check Commit Number", 
                                    command=self.openCheckCommitWindow,
                                    bg=COLORs['frmLine'], fg=COLORs['txt'], 
-                                   width=20, height=2, font=self.labelFont, 
+                                   width=18, height=1, font=self.labelFont, 
                                    activebackground=COLORs['frmLine'], 
                                    activeforeground=COLORs['txt'])
         batchBindEvent([self.repoInfo_frame,
@@ -119,15 +119,59 @@ class UI():
         self._setLabel(self.receiverInfo_frame, 'Address', 55)
         self._setEntry(self.receiverInfo_frame, 'receiver', 55)
         
-    def addButton(self):
-        self.btn = Button(self.tk, relief=FLAT,
+    def addOperationPanel(self):
+        self.OP_frame = Frame(self.tk, bg=COLORs['bg'], width=360, height=35)
+        self.OP_frame.pack()
+        self._setLabel(self.OP_frame, 'Check Every', 25, 90)
+        self.stringVars['hour'] = StringVar()
+        self.stringVars['hour'].set(0)
+        self.freq_hour_spin = Spinbox(self.OP_frame, from_=0, to=24,
+                                      textvariable=self.stringVars['hour'],
+                                      width=2, bg=COLORs['bg'], 
+                                      fg=COLORs['txt'])
+        self.freq_hour_spin.place(anchor=SE, y=23,x=120)
+        self._setLabel(self.OP_frame, 'h', 25, 135)
+        self.stringVars['min'] = StringVar()
+        self.stringVars['min'].set(1)
+        self.freq_min_spin = Spinbox(self.OP_frame, from_=1, to=59,
+                                      textvariable=self.stringVars['min'],
+                                      width=2, bg=COLORs['bg'], 
+                                      fg=COLORs['txt'])
+        self.freq_min_spin.place(anchor=SE, y=23,x=165)
+        self._setLabel(self.OP_frame, 'min', 25, 195)
+
+        self.check_start_btn = Button(self.OP_frame, relief=FLAT, 
+                                      text='Start', bg=COLORs['frmLine'],
+                                      fg=COLORs['txt'], width=6, height=1,
+                                      font=self.labelFont, 
+                                      activebackground=COLORs['frmLine'], 
+                                      activeforeground=COLORs['txt'])
+        self.check_start_btn.place(anchor=SE, y=30, x=270)
+        self.check_stop_btn = Button(self.OP_frame, relief=FLAT, 
+                                      text='Stop', bg=COLORs['frmLine'],
+                                      fg=COLORs['txt'], width=6, height=1,
+                                      font=self.labelFont, 
+                                      activebackground=COLORs['frmLine'], 
+                                      activeforeground=COLORs['txt'])
+        self.check_stop_btn.place(anchor=SE, y=30, x=350)
+
+
+        self.window_hide = Button(self.tk, relief=FLAT,
                           text="Hide to Tray", 
                           command=self.hideToTray,
                           bg=COLORs['frmLine'], fg=COLORs['txt'], 
-                          width=16, height=2, font=self.labelFont, 
+                          width=12, height=1, font=self.labelFont, 
                           activebackground=COLORs['frmLine'], 
                           activeforeground=COLORs['txt'])
-        self.btn.place(anchor=N, x=200, y=450)
+        self.window_hide.place(anchor=N, x=120, y=460)
+        self.window_quit = Button(self.tk, relief=FLAT,
+                          text="Quit", 
+                          command=self.hideToTray,
+                          bg=COLORs['frmLine'], fg=COLORs['txt'], 
+                          width=12, height=1, font=self.labelFont, 
+                          activebackground=COLORs['frmLine'], 
+                          activeforeground=COLORs['txt'])
+        self.window_quit.place(anchor=N, x=280, y=460)
 
     # Operating Functions vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def openCheckCommitWindow(self):
@@ -147,18 +191,17 @@ class UI():
         RUNNING[0] = False
         self.tk.destroy()
         del ui[0]
-        time.sleep(10)
-
+        #time.sleep(1)
     # Theme setting for all kinds of widgets vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def _setTitleLabel(self, master, text):
         tl = Label(master, padx=5, text=text, bg=COLORs['bg'], 
                    font=self.titleFont, fg=COLORs['txt'])
         tl.place(anchor=N, x=180, y=-6)
         
-    def _setLabel(self, master, text, y):
+    def _setLabel(self, master, text, y, x=110):
         l = Label(master, text=text, bg=COLORs['bg'], font=self.labelFont,
                   fg=COLORs['txt'])
-        l.place(anchor=SE, x=110, y=y)
+        l.place(anchor=SE, x=x, y=y)
 
     def _setEntry(self, master, varName, y, value=None, setFocus=False,
                   Return=False):
@@ -249,4 +292,6 @@ def pressButton(event, button):
 def releaseButton(root, event, button):
     button.config(relief = "raised")
     button.invoke()
-    
+
+if __name__ == "__main__":
+    UI(vals=VALs)
