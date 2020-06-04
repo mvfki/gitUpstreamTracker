@@ -9,16 +9,28 @@ from tkinter import Toplevel
 from tkinter.font import Font
 from core import getNCommit
 from urllib.error import HTTPError
+from infi.systray import SysTrayIcon
 
 COLORs = {'bg': '#19222d', 
           'frmLine': '#32414a', 
           'txt': '#f0f0f0',
           'selBg': '#1464a0'}
 
+# Status record variables used when hiding in the tray
+# Here it applies the "pointer" feature of list and dict
+# Don't overwrite these variables but set values by subscribing!
+VALs = {'owner': None, 
+        'repo': None,
+        'branch': 'master'}
+
+RUNNING = [False]
+
 class UI():
-    def __init__(self):
+    def __init__(self, sysTrayIcon=None, vals=None):
+        global RUNNING
+        RUNNING[0] = True
         self.tk = Tk()
-        
+        self.vals = vals
         self.titleFont = Font(root=self.tk, family="Helvetica", size=15)
         self.labelFont = Font(root=self.tk, family="Helvetica", size=11)
         self.entryFont = Font(root=self.tk, family="Courier", size=10)
@@ -31,14 +43,14 @@ class UI():
     # Appearance building vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def buildMainWindow(self):
         self.tk.title("gitUpstreamTracker")
-        self.tk.geometry('400x450')
+        self.tk.geometry('400x520')
         centerWindow(self.tk)
         self.tk["bg"] = COLORs['bg']
         self.tk.attributes("-alpha",0.95)
         self.addFrame_repoInfo()
         self.addFrame_senderInfo()
         self.addFrame_receiverInfo()
-        #self.addRunBtn()
+        self.addButton()
         
     def addFrame_repoInfo(self):
         self.repoInfo_frame = Frame(self.tk, bg=COLORs['bg'], width=360, 
@@ -49,16 +61,21 @@ class UI():
         # Owner entry
         self._setLabel(self.repoInfo_frame, "Owner", 55)
         self.repoInfo_owner_entry = self._setEntry(self.repoInfo_frame, 
-                                                   'owner', 55, setFocus=True,
+                                                   'owner', 55, 
+                                                   self.vals['owner'], 
+                                                   setFocus=True,
                                                    Return=True)
         # Repo entry
         self._setLabel(self.repoInfo_frame, "Repository", 85)
         self.repoInfo_repo_entry = self._setEntry(self.repoInfo_frame, 
-                                                  'repo', 85, Return=True)
+                                                  'repo', 85, 
+                                                  self.vals['repo'], 
+                                                  Return=True)
         # Branch entry
         self._setLabel(self.repoInfo_frame, "Branch", 115)
         self.repoInfo_branch_entry = self._setEntry(self.repoInfo_frame, 
-                                                    'branch', 115, 'master',
+                                                    'branch', 115, 
+                                                    self.vals['branch'],
                                                     Return=True)
         # Button
         self.repoInfo_btn = Button(self.repoInfo_frame, relief=FLAT,
@@ -98,6 +115,25 @@ class UI():
         self._setTitleLabel(self.receiverInfo_frame, "Receiver Email")
         self._setLabel(self.receiverInfo_frame, 'Address', 55)
         self._setEntry(self.receiverInfo_frame, 'receiver', 55)
+        
+    def addButton(self):
+        self.btn = Button(self.tk, relief=FLAT,
+                          text="Hide to Tray", 
+                          command=self.hideToTray,
+                          bg=COLORs['frmLine'], fg=COLORs['txt'], 
+                          width=16, height=2, font=self.labelFont, 
+                          activebackground=COLORs['frmLine'], 
+                          activeforeground=COLORs['txt'])
+        self.btn.place(anchor=N, x=200, y=450)
+    
+    def hideToTray(self):
+        global VALs
+        global RUNNING
+        VALs['owner'] = self.stringVars['owner'].get().strip()
+        VALs['repo'] = self.stringVars['repo'].get().strip()
+        VALs['branch'] = self.stringVars['branch'].get().strip()
+        RUNNING[0] = False
+        self.tk.destroy()
 
     # Operating Functions vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def openCheckCommitWindow(self):
@@ -106,7 +142,7 @@ class UI():
                                self.stringVars['branch'].get().strip())
         if owner and repo and branch:
             directCheckUI(owner, repo, branch)
-    
+        
     # Theme setting for all kinds of widgets vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def _setTitleLabel(self, master, text):
         tl = Label(master, padx=5, text=text, bg=COLORs['bg'], 
@@ -142,9 +178,6 @@ class directCheckUI():
             msg = f"Number of commit: {str(nCommit)}"
         except HTTPError:
             msg = "Given repository or branch not found"
-        #else:
-        #    msg = "Other error"
-        # main subwindow
         self.tk = Toplevel()
         self.tk.focus_set()
         self.tk.geometry('260x150')
@@ -152,7 +185,6 @@ class directCheckUI():
         self.tk["bg"] = COLORs['bg']
         self.tk.attributes("-alpha",0.95)
         # apearance
-        #labelFont = Font(root=self.tk, family="Helvetica", size=15)
         Label(self.tk, text=f"{owner}/{repo}", bg=COLORs['bg'], 
               font=Font(root=self.tk, family="Helvetica", size=13), 
               fg=COLORs['txt']).place(anchor=N, x=130, y=15)
@@ -175,7 +207,7 @@ class directCheckUI():
         
     def destroyWindow(self):
         self.tk.destroy()
-    
+        
 def centerWindow(win):
     """
     centers a tkinter window
@@ -214,5 +246,16 @@ def releaseButton(root, event, button):
     button.config(relief = "raised")
     button.invoke()
 
+def restoreUI(sysTrayIcon):
+    global RUNNING
+    if RUNNING[0] == False:
+        global VALs
+        UI(vals=VALs)
+
 if __name__ == '__main__':
-    UI()
+    menu_options = (("Show panel", None, restoreUI),)
+    systray = SysTrayIcon(None, "gitUpstreamTracker", menu_options)
+    systray.start()
+    UI(vals=VALs)
+    
+    
