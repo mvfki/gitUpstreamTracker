@@ -15,18 +15,22 @@ by periodical checks (latter should be simpler...)
 
 ## To start
 
+First of all, as I really love the hide-to-tray UI feature, which only works on Windows OS, 
+only Windows is supported (for now?).
+
 Although there are easy ways to send a email from Python, I prefer using an 
 official, authorized and safe way to access personal email. So here I adopted 
 Gmail OAuth2 method. As it is, of course you need to also have a Gmail 
 account.  
   
 ### Step 1
-You need these dependencies (run in shell/command line)
+You need these dependencies (run in command line/IPython IDLE)
 ```{shell}
 pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
 ```
-Other necessary dependencies includes: `urllib beautifulsoup4 tkinter email`, which you may already have in your environment.
-
+Other necessary dependencies includes: `urllib beautifulsoup4 tkinter email`, which you may already have in your environment.  
+  
+> Be sure to check the environment you are using. e.g. If they are installed from IPython IDLE, it is usually written into Anaconda environment as default. If you encounter an `ImportError` from other platforms, make sure to run with conda activated.
 ### Step 2
 You will want to visit [Gmail API Python Quickstart](https://developers.google.com/gmail/api/quickstart/python).  
   
@@ -45,5 +49,5 @@ as you don't modify this file.
 For now, modify email address as you need in `core.py` and run it.  
 
 ## Devel Note
-- Now Basic UI appearance is there, yet not functionalized.  
+- Now Basic UI appearance is there, yet not fully functionalized.  
 - Periodical check is muten for now, and it runs only one check and quit.  
