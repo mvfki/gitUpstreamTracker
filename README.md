@@ -6,19 +6,17 @@ sometimes forget to merge upstream and therefore cause conflicts. The goal of
 this script is to track a (public) repository and inform the developers when 
 new commits are updated.  
   
-For now, I want to basically make this script a periodically web crawler and a 
+For now, I want to basically make this script a background periodical web crawler and a 
 conditional email sender.  
   
-For further plan, I want to make this an desktop application, that can be 
-hidden in the task bar and push a notice right when there is any changes or 
-by periodical checks (latter should be simpler...)  
+Now the UI feature is basically useable, which can be hidden in the background.
 
 ## To start
 
 First of all, as I really love the hide-to-tray UI feature, which only works on Windows OS, 
 only Windows is supported (for now?).
 
-Although there are easy ways to send a email from Python, I prefer using an 
+Although there are easy ways to send an email from Python, I prefer using an 
 official, authorized and safe way to access personal email. So here I adopted 
 Gmail OAuth2 method. As it is, of course you need to also have a Gmail 
 account.  
@@ -26,7 +24,7 @@ account.
 ### Step 1
 You need these dependencies (run in command line/IPython IDLE)
 ```{shell}
-pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+$ pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
 ```
 Other necessary dependencies includes: `urllib beautifulsoup4 tkinter email`, which you may already have in your environment.  
   
@@ -46,8 +44,11 @@ credentials, you will no longer need to do this again in the future, as long
 as you don't modify this file.  
 
 ### Step 3
-For now, modify email address as you need in `core.py` and run it.  
+For now, directly run:
+```{shell}
+$ python UI.py
+```
+Make sure all the credential files and the other utilization modules are under the same working directory and Python environment.
 
 ## Devel Note
-- Now Basic UI appearance is there, yet not fully functionalized.  
-- Periodical check is muten for now, and it runs only one check and quit.  
+- Now Basic UI function is done, yet polish needed.  
