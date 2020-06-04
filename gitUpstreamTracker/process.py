@@ -9,6 +9,11 @@ import time
 from gmail import oath2Gmail
 from bs4 import BeautifulSoup
 
+def backgroundLoop():
+    while True:
+        print('hi')
+        time.sleep(3)
+
 # Git commit detecting part
 def makeURL(owner, repo, branch='master'):
     return f'https://github.com/{owner}/{repo}/tree/{branch}'
@@ -34,23 +39,24 @@ def periodicalCatcher(owner, repo, senderEmail, receiverEmail,
                 nNew = nCommit_Now - nCommit_Last
                 print(nNew, 'new commit found!')
                 message = f'Hi,\nThere are {str(nNew)} new commits found on {owner}/{repo}/{branch}'
+                oath2Gmail(message, senderEmail, receiverEmail)
             else:
                 print(nCommit_Now)
                 message = f'Hi,\nthere are currectly {str(nCommit_Now)} commits on {owner}/{repo}/{branch}'
-            oath2Gmail(message, senderEmail, receiverEmail)
+                print(message)
             # Currectly incompleted, dont want to run it forever.
-            break
             nCommit_Last = nCommit_Now
             time.sleep(interval)
         except KeyboardInterrupt:
-            print("KeyboardInterrupt: Stopped")
+            print("Process Stopped")
             break    
         
 if __name__ == "__main__":
-    upstreamRepoOwner = 'compbiomed'
-    upstreamRepoName = 'singleCellTK'
+    upstreamRepoOwner = 'mvfki'
+    upstreamRepoName = 'gitUpstreamTracker'
     upstreamRepoBranch = 'devel'
     receiver_email = 'wangych@bu.edu'
     sender_email = 'wangych0428@gmail.com'    
     periodicalCatcher(upstreamRepoOwner, upstreamRepoName, sender_email, 
-                      receiver_email, upstreamRepoBranch)
+                      receiver_email, upstreamRepoBranch, 5)
+    #backgroundLoop()

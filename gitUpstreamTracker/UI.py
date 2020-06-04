@@ -7,9 +7,9 @@ Created on Tue Jun  2 22:42:56 2020
 from tkinter import Tk, Frame, Label, Entry, N, SE, SW, StringVar, Button, FLAT
 from tkinter import Toplevel
 from tkinter.font import Font
-from core import getNCommit
+from process import getNCommit
 from urllib.error import HTTPError
-from infi.systray import SysTrayIcon
+import time
 
 COLORs = {'bg': '#19222d', 
           'frmLine': '#32414a', 
@@ -23,12 +23,15 @@ VALs = {'owner': None,
         'repo': None,
         'branch': 'master'}
 
-RUNNING = [False]
+RUNNING = [False] # Whether panel window is open
+ui = []
 
 class UI():
     def __init__(self, sysTrayIcon=None, vals=None):
         global RUNNING
+        global ui
         RUNNING[0] = True
+        ui.append(self)
         self.tk = Tk()
         self.vals = vals
         self.titleFont = Font(root=self.tk, family="Helvetica", size=15)
@@ -38,7 +41,6 @@ class UI():
         self.buildMainWindow()
         self.tk.focus_force()
         self.tk.protocol("WM_DELETE_WINDOW", self.hideToTray)
-        # TODOs
         self.tk.mainloop()
     
     # Appearance building vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -138,11 +140,15 @@ class UI():
     def hideToTray(self):
         global VALs
         global RUNNING
+        global ui
         VALs['owner'] = self.stringVars['owner'].get().strip()
         VALs['repo'] = self.stringVars['repo'].get().strip()
         VALs['branch'] = self.stringVars['branch'].get().strip()
         RUNNING[0] = False
         self.tk.destroy()
+        del ui[0]
+        time.sleep(10)
+
     # Theme setting for all kinds of widgets vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def _setTitleLabel(self, master, text):
         tl = Label(master, padx=5, text=text, bg=COLORs['bg'], 
@@ -241,21 +247,6 @@ def pressButton(event, button):
     button.config(relief = "sunken")
 
 def releaseButton(root, event, button):
-    root.update_idletasks()
-    #root.after(50)
     button.config(relief = "raised")
     button.invoke()
-
-def restoreUI(sysTrayIcon):
-    global RUNNING
-    if RUNNING[0] == False:
-        global VALs
-        UI(vals=VALs)
-
-if __name__ == '__main__':
-    menu_options = (("Show panel", None, restoreUI),)
-    systray = SysTrayIcon(None, "gitUpstreamTracker", menu_options)
-    systray.start()
-    UI(vals=VALs)
-    
     
