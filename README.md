@@ -26,9 +26,11 @@ You need these dependencies (run in command line/IPython IDLE)
 ```{shell}
 $ pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
 ```
+
 Other necessary dependencies includes: `urllib beautifulsoup4 tkinter email`, which you may already have in your environment.  
   
 > Be sure to check the environment you are using. e.g. If they are installed from IPython IDLE, it is usually written into Anaconda environment as default. If you encounter an `ImportError` from other platforms, make sure to run with conda activated.
+
 ### Step 2
 You will want to visit [Gmail API Python Quickstart](https://developers.google.com/gmail/api/quickstart/python).  
   
@@ -52,3 +54,4 @@ Make sure all the credential files and the other utilization modules are under t
 
 ## Devel Note
 - Now Basic UI function is done, yet polish needed.  
+
