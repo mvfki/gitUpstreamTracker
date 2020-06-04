@@ -37,6 +37,7 @@ class UI():
         self.stringVars = {}
         self.buildMainWindow()
         self.tk.focus_force()
+        self.tk.protocol("WM_DELETE_WINDOW", self.hideToTray)
         # TODOs
         self.tk.mainloop()
     
@@ -125,6 +126,14 @@ class UI():
                           activebackground=COLORs['frmLine'], 
                           activeforeground=COLORs['txt'])
         self.btn.place(anchor=N, x=200, y=450)
+
+    # Operating Functions vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    def openCheckCommitWindow(self):
+        owner, repo, branch = (self.stringVars['owner'].get().strip(), 
+                               self.stringVars['repo'].get().strip(), 
+                               self.stringVars['branch'].get().strip())
+        if owner and repo and branch:
+            directCheckUI(owner, repo, branch)
     
     def hideToTray(self):
         global VALs
@@ -134,15 +143,6 @@ class UI():
         VALs['branch'] = self.stringVars['branch'].get().strip()
         RUNNING[0] = False
         self.tk.destroy()
-
-    # Operating Functions vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    def openCheckCommitWindow(self):
-        owner, repo, branch = (self.stringVars['owner'].get().strip(), 
-                               self.stringVars['repo'].get().strip(), 
-                               self.stringVars['branch'].get().strip())
-        if owner and repo and branch:
-            directCheckUI(owner, repo, branch)
-        
     # Theme setting for all kinds of widgets vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def _setTitleLabel(self, master, text):
         tl = Label(master, padx=5, text=text, bg=COLORs['bg'], 
@@ -242,7 +242,7 @@ def pressButton(event, button):
 
 def releaseButton(root, event, button):
     root.update_idletasks()
-    root.after(50)
+    #root.after(50)
     button.config(relief = "raised")
     button.invoke()
 
