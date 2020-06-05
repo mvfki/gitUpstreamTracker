@@ -54,4 +54,9 @@ Make sure all the credential files and the other utilization modules are under t
 
 ## Devel Note
 - Now Basic UI function is done, yet polish needed.  
-
+- For compiling to executable
+```
+cd gitUpstreamTracker
+pyinstaller -F UI.spec
+```
+However, the compiled executable is still having some problem running the background process :(
