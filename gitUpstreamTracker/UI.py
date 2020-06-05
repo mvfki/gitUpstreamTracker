@@ -13,13 +13,15 @@ import time, sys
 from multiprocessing import Process
 from infi.systray import SysTrayIcon
 import re
+import logging
 
 EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
 GMAIL_REGEX = re.compile(r"[^@]+@gmail.com")
 COLORs = {'bg': '#19222d', 
           'frmLine': '#32414a', 
           'txt': '#f0f0f0',
-          'selBg': '#1464a0'}
+          'selBg': '#1464a0',
+          'dis': "#787878"}
 
 # Status record variables used when hiding in the tray
 # Here it applies the "pointer" feature of list and dict
@@ -56,6 +58,7 @@ class UI():
     
     # Appearance building vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def buildMainWindow(self):
+        logging.debug("Building window.")
         self.tk.title("gitUpstreamTracker")
         self.tk.geometry('400x510')
         centerWindow(self.tk)
@@ -140,7 +143,9 @@ class UI():
         self.freq_hour_spin = Spinbox(self.OP_frame, from_=0, to=24,
                                       textvariable=self.stringVars['hour'],
                                       width=2, bg=COLORs['bg'], 
-                                      fg=COLORs['txt'])
+                                      fg=COLORs['txt'],
+                                      disabledbackground=COLORs['bg'],
+                                      disabledforeground=COLORs['dis'])
         self.freq_hour_spin.place(anchor=SE, y=23,x=120)
         self._setLabel(self.OP_frame, 'h', 25, 135)
         self.stringVars['min'] = IntVar()
@@ -148,7 +153,9 @@ class UI():
         self.freq_min_spin = Spinbox(self.OP_frame, from_=1, to=59,
                                       textvariable=self.stringVars['min'],
                                       width=2, bg=COLORs['bg'], 
-                                      fg=COLORs['txt'])
+                                      fg=COLORs['txt'],
+                                      disabledbackground=COLORs['bg'],
+                                      disabledforeground=COLORs['dis'])
         self.freq_min_spin.place(anchor=SE, y=23,x=165)
         self._setLabel(self.OP_frame, 'min', 25, 195)
         self.check_start_btn = Button(self.OP_frame, relief=FLAT, 
@@ -174,7 +181,14 @@ class UI():
         self.check_stop_btn.place(anchor=SE, y=30, x=350)
         global PROC
         if len(PROC) == 1 and PROC[0].is_alive():
+            self.repoInfo_owner_entry['state'] = DISABLED
+            self.repoInfo_repo_entry['state'] = DISABLED
+            self.repoInfo_branch_entry['state'] = DISABLED
+            self.senderInfo_entry['state'] = DISABLED
+            self.receiverInfo_entry['state'] = DISABLED
             self.check_start_btn['state'] = DISABLED
+            self.freq_min_spin['state'] = DISABLED
+            self.freq_hour_spin['state'] = DISABLED
             self.check_stop_btn['state'] = NORMAL
         elif len(PROC) == 0 and self.entryAllEntered():
             self.check_start_btn['state'] = NORMAL
@@ -183,7 +197,8 @@ class UI():
             self.check_start_btn['state'] = DISABLED
             self.check_stop_btn['state'] = DISABLED
         else:
-            raise Exception("The process is running abnormally.")
+            logging.error("Process running abnormally when building the window")
+            logging.error(f"len(PROC)=={len(PROC)}, PROC[0].is_alive()=={str(PROC[0].is_alive())}")
         self.window_hide = Button(self.tk, relief=FLAT,
                           text="Hide to Tray", 
                           command=self.hideToTray,
@@ -234,6 +249,8 @@ class UI():
             self.repoInfo_branch_entry['state'] = DISABLED
             self.senderInfo_entry['state'] = DISABLED
             self.receiverInfo_entry['state'] = DISABLED
+            self.freq_min_spin['state'] = DISABLED
+            self.freq_hour_spin['state'] = DISABLED
             intervalSec = self.stringVars['hour'].get() * 60 * 60 + \
                           self.stringVars['min'].get() * 60
             try:
@@ -251,7 +268,7 @@ class UI():
                 time.sleep(1)
                 self.check_stop_btn['state'] = NORMAL
             except Exception as e:
-                print('Error encountered:', e)
+                logging.error('Error encountered: ' + str(e))
                 self.check_stop_btn['state'] = DISABLED
                 self.check_start_btn['state'] = NORMAL
                 self.repoInfo_owner_entry['state'] = NORMAL
@@ -259,6 +276,8 @@ class UI():
                 self.repoInfo_branch_entry['state'] = NORMAL
                 self.senderInfo_entry['state'] = NORMAL
                 self.receiverInfo_entry['state'] = NORMAL
+                self.freq_min_spin['state'] = NORMAL
+                self.freq_hour_spin['state'] = NORMAL
 
     def stopLoop(self):
         global PROC
@@ -318,7 +337,7 @@ class UI():
                   selectbackground=COLORs['selBg'],
                   insertbackground=COLORs['txt'],
                   disabledbackground=COLORs['bg'],
-                  disabledforeground="#787878")
+                  disabledforeground=COLORs['dis'])
         e.place(anchor=SW, x=120, y=y, height=22, width=180)
         if setFocus:
             e.focus()
@@ -418,7 +437,7 @@ def on_quit_callback(systray):
     elif len(PROC) == 0:
         pass
     else:
-        raise Exception("Abnormal process running status.")
+        logging.warning("Abnormal process running status on quit. Exitting anyway.")
     if RUNNING[0]:
         ui[0].tk.quit()
 
@@ -430,4 +449,5 @@ def main():
     UI(vals=VALs)
 
 if __name__ == '__main__':
+    logging.info("Thanks for using this script.")
     main()

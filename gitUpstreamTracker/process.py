@@ -9,6 +9,12 @@ import time
 from gmail import oath2Gmail
 from bs4 import BeautifulSoup
 import threading
+import logging
+from sys import stderr
+
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+logging.basicConfig(stream=stderr, level=logging.INFO, format=LOG_FORMAT)
+#logging.basicConfig(filename=argv[1], level=logging.INFO, format=LOG_FORMAT)
 
 # Git commit detecting part
 def makeURL(owner, repo, branch='master'):
@@ -26,9 +32,9 @@ def getNCommit(owner, repo, branch='master'):
 def periodicalCatcher(owner, repo, senderEmail, receiverEmail, 
                       branch, interval):
     try:
-        print("Having an initial check")
+        logging.info("Having an initial check")
         nCommit_Last = getNCommit(owner, repo, branch)
-        print(nCommit_Last, "commits found")
+        logging.info(f"{owner}/{repo} {branch} currently has {nCommit_Last} commits.")
         time.sleep(interval)
         while True:
             try:
@@ -36,16 +42,15 @@ def periodicalCatcher(owner, repo, senderEmail, receiverEmail,
                                          branch)
                 if nCommit_Now != nCommit_Last:
                     nNew = nCommit_Now - nCommit_Last
-                    print(nNew, 'new commit found!')
+                    logging.info(nNew, 'new commit found!')
                     message = f'Hi,\nThere are {str(nNew)} new commits found on {owner}/{repo}/{branch}'
                     oath2Gmail(message, senderEmail, 
                                receiverEmail)
-                else:
-                    message = f'Hi,\nthere are currectly {str(nCommit_Now)} commits on {owner}/{repo}/{branch}'
-                    print(message)
+                logging.info(f"{owner}/{repo} {branch} currently has {nCommit_Now} commits.")
                 nCommit_Last = nCommit_Now
                 time.sleep(interval)
             except KeyboardInterrupt:
                 break
     except Exception as e:
-        print('Error encountered:', e)
+        logging.error('Error encountered: ' + str(e))
+
