@@ -2,3 +2,5 @@ gitUpstreamTracker/credentials.json
 gitUpstreamTracker/token.pickle
 gitUpstreamTracker/icon.ico
 gitUpstreamTracker/__pycache__/*
+gUT.log
+build/*

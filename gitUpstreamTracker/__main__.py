@@ -8,19 +8,18 @@ from tkinter import Tk, Frame, Label, Entry, N, SE, SW, StringVar, Button, END
 from tkinter import Toplevel, Spinbox, DISABLED, NORMAL, IntVar, Text, FLAT
 from tkinter.font import Font
 from infi.systray import SysTrayIcon
-from bs4 import BeautifulSoup
+
 from multiprocessing import Process, Manager, freeze_support
-from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
-import time, re
+from time import sleep, strftime
+from re import compile
 from sys import stdout
 
-from gmail import oath2Gmail
+from .process import periodicalCatcher, getNCommit
 
 
-
-EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
-GMAIL_REGEX = re.compile(r"[^@]+@gmail.com")
+EMAIL_REGEX = compile(r"[^@]+@[^@]+\.[^@]+")
+GMAIL_REGEX = compile(r"[^@]+@gmail.com")
 COLORs = {'bg': '#19222d', 
           'frmLine': '#32414a', 
           'txt': '#f0f0f0',
@@ -70,7 +69,6 @@ class UI():
     
     # Appearance building vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def buildMainWindow(self):
-        logger("debug", "Building window.")
         self.tk.title("gitUpstreamTracker")
         self.tk.geometry('400x510')
         centerWindow(self.tk)
@@ -285,7 +283,7 @@ class UI():
                 VALs['sender'] = self.stringVars['sender'].get().strip()
                 VALs['hour'] = self.stringVars['hour'].get()
                 VALs['min'] = self.stringVars['min'].get()
-                time.sleep(1)
+                sleep(1)
                 self.check_stop_btn['state'] = NORMAL
             except Exception as e:
                 logger("error", 'Error encountered: ' + str(e))
@@ -320,7 +318,7 @@ class UI():
                 p.join()
             for i in range(len(PROC)):
                 del PROC[0]
-        time.sleep(1)
+        sleep(1)
         self.check_start_btn['state'] = NORMAL
         self.repoInfo_owner_entry['state'] = NORMAL
         self.repoInfo_repo_entry['state'] = NORMAL
@@ -507,57 +505,10 @@ def restoreUI(sysTrayIcon):
     if RUNNING[0] == False:
         UI(vals=VALs)
 
-# Git commit detecting part
-def makeURL(owner, repo, branch='master'):
-    return f'https://github.com/{owner}/{repo}/tree/{branch}'
-
-def getNCommit(owner, repo, branch='master'):
-    '''Using a BS4 method to make this crawler process readable.'''
-    url = makeURL(owner, repo, branch)
-    html = urlopen(url).read().decode('utf-8')
-    soup = BeautifulSoup(html, features="lxml")
-    allSpan = soup.findAll("span", {"class": ["num", "text-emphasized"]})
-    nCommit = int(allSpan[0].text.strip().replace(',', ''))
-    return nCommit
-
-def periodicalCatcher(owner, repo, senderEmail, receiverEmail, 
-                      branch, interval, logs):
-    def logger(level, *args):
-        body =  f"{time.strftime('%Y-%m-%d %H:%M')} - {level.upper()} - "
-        pieces = [str(i) for i in args]
-        msg = body + ' '.join(pieces)
-        stdout.write(msg + '\n')
-        logs.append(msg)
-    try:
-        #print(id(logger))
-        logger("info", "Having an initial check")
-        nCommit_Last = getNCommit(owner, repo, branch)
-        logger("info", f"{owner}/{repo} {branch} currently has {nCommit_Last} commits.")
-        time.sleep(interval)
-        while True:
-            try:
-                nCommit_Now = getNCommit(owner, repo, 
-                                         branch)
-                if nCommit_Now != nCommit_Last:
-                    nNew = nCommit_Now - nCommit_Last
-                    logger("info", nNew, 'new commit found!')
-                    message = f'Hi,\nThere are {str(nNew)} new commits found on {owner}/{repo}/{branch}'
-                    oath2Gmail(message, senderEmail, 
-                               receiverEmail)
-                logger("info", 
-                       f"{owner}/{repo} {branch} currently has {nCommit_Now} commits.")
-                nCommit_Last = nCommit_Now
-                time.sleep(interval)
-            except KeyboardInterrupt:
-                break
-    except Exception as e:
-        logger("error", 'Error encountered: ' + str(e))
-
-
 def writeLogs():
     global LOGS
     logs = list(LOGS)
-    logIO = open('gTU.log', 'a')
+    logIO = open('gUT.log', 'a')
     logIO.write('\n'.join(logs) + '\n')
     logIO.close()
 
@@ -580,7 +531,7 @@ def on_quit_callback(systray):
 
 def logger(level, *args):
     global LOGS
-    body =  f"{time.strftime('%Y-%m-%d %H:%M')} - {level.upper()} - "
+    body =  f"{strftime('%Y-%m-%d %H:%M')} - {level.upper()} - "
     pieces = [str(i) for i in args]
     msg = body + ' '.join(pieces)
     stdout.write(msg + '\n')
@@ -596,6 +547,7 @@ def main():
     UI(vals=VALs)
 
 if __name__ == '__main__':  
+    freeze_support()
     manager = Manager()
     LOGS = manager.list()
     main()
