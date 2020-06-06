@@ -4,16 +4,20 @@ Created on Tue Jun  2 22:42:56 2020
 
 @author: Yichen Wang
 """
-from tkinter import Tk, Frame, Label, Entry, N, SE, SW, StringVar, Button, FLAT
-from tkinter import Toplevel, Spinbox, DISABLED, NORMAL, IntVar
+from tkinter import Tk, Frame, Label, Entry, N, SE, SW, StringVar, Button, END
+from tkinter import Toplevel, Spinbox, DISABLED, NORMAL, IntVar, Text, FLAT
 from tkinter.font import Font
-from process import getNCommit, periodicalCatcher
-from urllib.error import HTTPError
-import time, sys
-from multiprocessing import Process
 from infi.systray import SysTrayIcon
-import re
-import logging
+from bs4 import BeautifulSoup
+from multiprocessing import Process, Manager, freeze_support
+from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+import time, re
+from sys import stdout
+
+from gmail import oath2Gmail
+
+
 
 EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
 GMAIL_REGEX = re.compile(r"[^@]+@gmail.com")
@@ -54,11 +58,19 @@ class UI():
         self.buildMainWindow()
         self.tk.focus_force()
         self.tk.protocol("WM_DELETE_WINDOW", self.hideToTray)
+        try:
+            getNCommit('mvfki', 'gitUpstreamTracker', 'master')
+        except URLError:
+            self.check_start_btn['state'] = DISABLED
+            self.repoInfo_btn['state'] = DISABLED
+            self.tk.geometry('400x550')
+            self._setLabel(self.tk, 'Internet connection error\nPlease check and restart.', 
+                           x=290, y=540)
         self.tk.mainloop()
     
     # Appearance building vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     def buildMainWindow(self):
-        logging.debug("Building window.")
+        logger("debug", "Building window.")
         self.tk.title("gitUpstreamTracker")
         self.tk.geometry('400x510')
         centerWindow(self.tk)
@@ -197,8 +209,8 @@ class UI():
             self.check_start_btn['state'] = DISABLED
             self.check_stop_btn['state'] = DISABLED
         else:
-            logging.error("Process running abnormally when building the window")
-            logging.error(f"len(PROC)=={len(PROC)}, PROC[0].is_alive()=={str(PROC[0].is_alive())}")
+            logger("error", "Process running abnormally when building the window")
+            logger("error", f"len(PROC)=={len(PROC)}, PROC[0].is_alive()=={str(PROC[0].is_alive())}")
         self.window_hide = Button(self.tk, relief=FLAT,
                           text="Hide to Tray", 
                           command=self.hideToTray,
@@ -241,7 +253,7 @@ class UI():
 
     def startLoop(self):
         global PROC
-        assert len(PROC) == 0, "Unknown process running"
+        logger("info", "Check button pressed")
         if self.entryAllEntered():
             self.check_start_btn['state'] = DISABLED
             self.repoInfo_owner_entry['state'] = DISABLED
@@ -257,18 +269,26 @@ class UI():
                 getNCommit(self.stringVars['owner'].get().strip(), 
                            self.stringVars['repo'].get().strip(), 
                            self.stringVars['branch'].get().strip())
+                logger("info", "Abled to run the process")
                 PROC.append(Process(target=periodicalCatcher, 
                             args=(self.stringVars['owner'].get().strip(), 
                                   self.stringVars['repo'].get().strip(), 
                                   self.stringVars['sender'].get().strip(), 
                                   self.stringVars['receiver'].get().strip(),
                                   self.stringVars['branch'].get().strip(), 
-                                  intervalSec)))
+                                  intervalSec, LOGS)))
                 PROC[0].start()
+                VALs['owner'] = self.stringVars['owner'].get().strip()
+                VALs['repo'] = self.stringVars['repo'].get().strip()
+                VALs['branch'] = self.stringVars['branch'].get().strip()
+                VALs['receiver'] = self.stringVars['receiver'].get().strip()
+                VALs['sender'] = self.stringVars['sender'].get().strip()
+                VALs['hour'] = self.stringVars['hour'].get()
+                VALs['min'] = self.stringVars['min'].get()
                 time.sleep(1)
                 self.check_stop_btn['state'] = NORMAL
             except Exception as e:
-                logging.error('Error encountered: ' + str(e))
+                logger("error", 'Error encountered: ' + str(e))
                 self.check_stop_btn['state'] = DISABLED
                 self.check_start_btn['state'] = NORMAL
                 self.repoInfo_owner_entry['state'] = NORMAL
@@ -279,13 +299,27 @@ class UI():
                 self.freq_min_spin['state'] = NORMAL
                 self.freq_hour_spin['state'] = NORMAL
 
+
     def stopLoop(self):
         global PROC
-        assert len(PROC) == 1 and PROC[0].is_alive(), "The process is not normally running"
         self.check_stop_btn['state'] = DISABLED
-        PROC[0].terminate()
-        PROC[0].join()
-        del PROC[0]
+        if len(PROC) == 1 and PROC[0].is_alive():
+            logger("info", "Stopping process normally")
+            PROC[0].terminate()
+            PROC[0].join()
+            del PROC[0]
+        elif len(PROC) == 1 and not PROC[0].is_alive():
+            logger("warning", "Process is not alive. Stop anyway.")
+            PROC[0].terminate()
+            PROC[0].join()
+            del PROC[0]
+        elif len(PROC) > 1:
+            logger("error", "Unknown number of process running. Stop them all.")
+            for p in PROC:
+                p.terminate()
+                p.join()
+            for i in range(len(PROC)):
+                del PROC[0]
         time.sleep(1)
         self.check_start_btn['state'] = NORMAL
         self.repoInfo_owner_entry['state'] = NORMAL
@@ -293,6 +327,7 @@ class UI():
         self.repoInfo_branch_entry['state'] = NORMAL
         self.senderInfo_entry['state'] = NORMAL
         self.receiverInfo_entry['state'] = NORMAL
+        logger("info", "Successfully stopped")
 
     def entryAllEntered(self):
         allArgs = [self.stringVars['owner'].get().strip(), 
@@ -382,7 +417,53 @@ class directCheckUI():
         
     def destroyWindow(self):
         self.tk.destroy()
-        
+
+class statusBox():
+    def __init__(self, systray):
+        self.tk = Tk()
+        self.tk.focus_set()
+        self.tk.geometry('500x200-1-42')
+        self.tk.overrideredirect(True)
+        self.tk['bg'] = COLORs['bg']
+        self.tk.attributes("-alpha",0.95)
+        self.tk.bind("<FocusOut>", self.quit)
+        self.refresh()
+        self.refreshBtn = Button(self.tk, text='Refresh', relief=FLAT,
+                                 bg=COLORs['frmLine'], fg=COLORs['txt'], 
+                                 width=8, height=1, command=self.refresh,
+                                 font = Font(root=self.tk, family="Helvetica", 
+                                             size=11),
+                                 activebackground=COLORs['frmLine'], 
+                                 activeforeground=COLORs['txt'])
+        self.refreshBtn.place(anchor="ne", x=480, y=10)
+        self.tk.mainloop()
+
+    def quit(self, event):
+        self.tk.destroy()
+
+    def refresh(self):
+        global LOGS
+        if len(PROC) == 1 and PROC[0].is_alive():
+            l = f"Tracking {VALs['owner']}/{VALs['repo']} {VALs['branch']}"
+            self.label = Label(self.tk, text=l, bg=COLORs['bg'], 
+                               fg=COLORs['txt'], 
+                               font=Font(root=self.tk, family="Helvetica", 
+                                         size=11))
+        else:
+            self.label = Label(self.tk, text="Not running", bg=COLORs['bg'], 
+                               fg=COLORs['txt'], 
+                               font=Font(root=self.tk, family="Helvetica", 
+                                         size=11))
+        self.label.place(anchor="nw", x=20, y=12)
+        self.textFrame = Text(self.tk, bg='#0f1823', width=65, height=8,
+                              padx=5, pady=5, fg=COLORs['txt'], spacing1=2, 
+                              spacing2=1, spacing3=2, wrap='word',
+                              selectbackground=COLORs['selBg'], 
+                              highlightthickness=0, relief=FLAT)
+        self.textFrame.insert(END, '\n'.join(list(LOGS)))
+        self.textFrame.see(END)
+        self.textFrame.place(anchor=N, x=250,y=45)
+
 def centerWindow(win):
     """
     centers a tkinter window
@@ -426,10 +507,65 @@ def restoreUI(sysTrayIcon):
     if RUNNING[0] == False:
         UI(vals=VALs)
 
+# Git commit detecting part
+def makeURL(owner, repo, branch='master'):
+    return f'https://github.com/{owner}/{repo}/tree/{branch}'
+
+def getNCommit(owner, repo, branch='master'):
+    '''Using a BS4 method to make this crawler process readable.'''
+    url = makeURL(owner, repo, branch)
+    html = urlopen(url).read().decode('utf-8')
+    soup = BeautifulSoup(html, features="lxml")
+    allSpan = soup.findAll("span", {"class": ["num", "text-emphasized"]})
+    nCommit = int(allSpan[0].text.strip().replace(',', ''))
+    return nCommit
+
+def periodicalCatcher(owner, repo, senderEmail, receiverEmail, 
+                      branch, interval, logs):
+    def logger(level, *args):
+        body =  f"{time.strftime('%Y-%m-%d %H:%M')} - {level.upper()} - "
+        pieces = [str(i) for i in args]
+        msg = body + ' '.join(pieces)
+        stdout.write(msg + '\n')
+        logs.append(msg)
+    try:
+        #print(id(logger))
+        logger("info", "Having an initial check")
+        nCommit_Last = getNCommit(owner, repo, branch)
+        logger("info", f"{owner}/{repo} {branch} currently has {nCommit_Last} commits.")
+        time.sleep(interval)
+        while True:
+            try:
+                nCommit_Now = getNCommit(owner, repo, 
+                                         branch)
+                if nCommit_Now != nCommit_Last:
+                    nNew = nCommit_Now - nCommit_Last
+                    logger("info", nNew, 'new commit found!')
+                    message = f'Hi,\nThere are {str(nNew)} new commits found on {owner}/{repo}/{branch}'
+                    oath2Gmail(message, senderEmail, 
+                               receiverEmail)
+                logger("info", 
+                       f"{owner}/{repo} {branch} currently has {nCommit_Now} commits.")
+                nCommit_Last = nCommit_Now
+                time.sleep(interval)
+            except KeyboardInterrupt:
+                break
+    except Exception as e:
+        logger("error", 'Error encountered: ' + str(e))
+
+
+def writeLogs():
+    global LOGS
+    logs = list(LOGS)
+    logIO = open('gTU.log', 'a')
+    logIO.write('\n'.join(logs) + '\n')
+    logIO.close()
+
 def on_quit_callback(systray):
     global PROC
     global ui
     global RUNNING
+    global LOGS
     if len(PROC) == 1 and PROC[0].is_alive():
         PROC[0].terminate()
         PROC[0].join()
@@ -437,17 +573,30 @@ def on_quit_callback(systray):
     elif len(PROC) == 0:
         pass
     else:
-        logging.warning("Abnormal process running status on quit. Exitting anyway.")
+        logger("warning", "Abnormal process running status on quit. Exitting anyway.")
     if RUNNING[0]:
         ui[0].tk.quit()
+    writeLogs()
+
+def logger(level, *args):
+    global LOGS
+    body =  f"{time.strftime('%Y-%m-%d %H:%M')} - {level.upper()} - "
+    pieces = [str(i) for i in args]
+    msg = body + ' '.join(pieces)
+    stdout.write(msg + '\n')
+    LOGS.append(msg)
 
 def main():
-    menu_options = (("Show panel", None, restoreUI),)
+    logger("info", "Thanks for using this script.")
+    menu_options = (("Show panel", None, restoreUI),
+                    ("Show status log", None, statusBox))
     SYSTRAY.append(SysTrayIcon(None, "gitUpstreamTracker", menu_options,
                                on_quit=on_quit_callback))
     SYSTRAY[0].start()
     UI(vals=VALs)
 
-if __name__ == '__main__':
-    logging.info("Thanks for using this script.")
+if __name__ == '__main__':  
+    manager = Manager()
+    LOGS = manager.list()
     main()
+
