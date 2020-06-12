@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jun  2 14:13:43 2020
+Created on Tue Jun  2 22:42:56 2020
 
 @author: Yichen Wang
-"""
-from urllib.request import urlopen
-import time
-from gmail import oath2Gmail
-from bs4 import BeautifulSoup
-import threading
 
-# Git commit detecting part
+Due to wierd multiprocessing package feature, the job send to Process() has to
+be something imported from a submodule. So...
+"""
+from time import strftime, sleep
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+from sys import stdout
+
+from .gmail import oath2Gmail
+
 def makeURL(owner, repo, branch='master'):
     return f'https://github.com/{owner}/{repo}/tree/{branch}'
 
@@ -24,28 +27,34 @@ def getNCommit(owner, repo, branch='master'):
     return nCommit
 
 def periodicalCatcher(owner, repo, senderEmail, receiverEmail, 
-                      branch, interval):
+                      branch, interval, logs):
+    def logger(level, *args):
+        body =  f"{strftime('%Y-%m-%d %H:%M')} - {level.upper()} - "
+        pieces = [str(i) for i in args]
+        msg = body + ' '.join(pieces)
+        stdout.write(msg + '\n')
+        logs.append(msg)
     try:
-        print("Having an initial check")
+        #print(id(logger))
+        logger("info", "Having an initial check")
         nCommit_Last = getNCommit(owner, repo, branch)
-        print(nCommit_Last, "commits found")
-        time.sleep(interval)
+        logger("info", f"{owner}/{repo} {branch} currently has {nCommit_Last} commits.")
+        sleep(interval)
         while True:
             try:
                 nCommit_Now = getNCommit(owner, repo, 
                                          branch)
                 if nCommit_Now != nCommit_Last:
                     nNew = nCommit_Now - nCommit_Last
-                    print(nNew, 'new commit found!')
+                    logger("info", nNew, 'new commit found!')
                     message = f'Hi,\nThere are {str(nNew)} new commits found on {owner}/{repo}/{branch}'
                     oath2Gmail(message, senderEmail, 
                                receiverEmail)
-                else:
-                    message = f'Hi,\nthere are currectly {str(nCommit_Now)} commits on {owner}/{repo}/{branch}'
-                    print(message)
+                logger("info", 
+                       f"{owner}/{repo} {branch} currently has {nCommit_Now} commits.")
                 nCommit_Last = nCommit_Now
-                time.sleep(interval)
+                sleep(interval)
             except KeyboardInterrupt:
                 break
     except Exception as e:
-        print('Error encountered:', e)
+        logger("error", 'Error encountered: ' + str(e))

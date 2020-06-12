@@ -4,22 +4,27 @@ Created on Tue Jun  2 22:42:56 2020
 
 @author: Yichen Wang
 """
-from tkinter import Tk, Frame, Label, Entry, N, SE, SW, StringVar, Button, FLAT
-from tkinter import Toplevel, Spinbox, DISABLED, NORMAL, IntVar
+from tkinter import Tk, Frame, Label, Entry, N, SE, SW, StringVar, Button, END
+from tkinter import Toplevel, Spinbox, DISABLED, NORMAL, IntVar, Text, FLAT
 from tkinter.font import Font
-from process import getNCommit, periodicalCatcher
-from urllib.error import HTTPError
-import time, sys
-from multiprocessing import Process
 from infi.systray import SysTrayIcon
-import re
 
-EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
-GMAIL_REGEX = re.compile(r"[^@]+@gmail.com")
+from multiprocessing import Process, Manager, freeze_support
+from urllib.error import HTTPError, URLError
+from time import sleep, strftime
+from re import compile
+from sys import stdout
+
+from .process import periodicalCatcher, getNCommit
+
+
+EMAIL_REGEX = compile(r"[^@]+@[^@]+\.[^@]+")
+GMAIL_REGEX = compile(r"[^@]+@gmail.com")
 COLORs = {'bg': '#19222d', 
           'frmLine': '#32414a', 
           'txt': '#f0f0f0',
-          'selBg': '#1464a0'}
+          'selBg': '#1464a0',
+          'dis': "#787878"}
 
 # Status record variables used when hiding in the tray
 # Here it applies the "pointer" feature of list and dict
@@ -52,6 +57,14 @@ class UI():
         self.buildMainWindow()
         self.tk.focus_force()
         self.tk.protocol("WM_DELETE_WINDOW", self.hideToTray)
+        try:
+            getNCommit('mvfki', 'gitUpstreamTracker', 'master')
+        except URLError:
+            self.check_start_btn['state'] = DISABLED
+            self.repoInfo_btn['state'] = DISABLED
+            self.tk.geometry('400x550')
+            self._setLabel(self.tk, 'Internet connection error\nPlease check and restart.', 
+                           x=290, y=540)
         self.tk.mainloop()
     
     # Appearance building vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -140,7 +153,9 @@ class UI():
         self.freq_hour_spin = Spinbox(self.OP_frame, from_=0, to=24,
                                       textvariable=self.stringVars['hour'],
                                       width=2, bg=COLORs['bg'], 
-                                      fg=COLORs['txt'])
+                                      fg=COLORs['txt'],
+                                      disabledbackground=COLORs['bg'],
+                                      disabledforeground=COLORs['dis'])
         self.freq_hour_spin.place(anchor=SE, y=23,x=120)
         self._setLabel(self.OP_frame, 'h', 25, 135)
         self.stringVars['min'] = IntVar()
@@ -148,7 +163,9 @@ class UI():
         self.freq_min_spin = Spinbox(self.OP_frame, from_=1, to=59,
                                       textvariable=self.stringVars['min'],
                                       width=2, bg=COLORs['bg'], 
-                                      fg=COLORs['txt'])
+                                      fg=COLORs['txt'],
+                                      disabledbackground=COLORs['bg'],
+                                      disabledforeground=COLORs['dis'])
         self.freq_min_spin.place(anchor=SE, y=23,x=165)
         self._setLabel(self.OP_frame, 'min', 25, 195)
         self.check_start_btn = Button(self.OP_frame, relief=FLAT, 
@@ -174,7 +191,14 @@ class UI():
         self.check_stop_btn.place(anchor=SE, y=30, x=350)
         global PROC
         if len(PROC) == 1 and PROC[0].is_alive():
+            self.repoInfo_owner_entry['state'] = DISABLED
+            self.repoInfo_repo_entry['state'] = DISABLED
+            self.repoInfo_branch_entry['state'] = DISABLED
+            self.senderInfo_entry['state'] = DISABLED
+            self.receiverInfo_entry['state'] = DISABLED
             self.check_start_btn['state'] = DISABLED
+            self.freq_min_spin['state'] = DISABLED
+            self.freq_hour_spin['state'] = DISABLED
             self.check_stop_btn['state'] = NORMAL
         elif len(PROC) == 0 and self.entryAllEntered():
             self.check_start_btn['state'] = NORMAL
@@ -183,7 +207,8 @@ class UI():
             self.check_start_btn['state'] = DISABLED
             self.check_stop_btn['state'] = DISABLED
         else:
-            raise Exception("The process is running abnormally.")
+            logger("error", "Process running abnormally when building the window")
+            logger("error", f"len(PROC)=={len(PROC)}, PROC[0].is_alive()=={str(PROC[0].is_alive())}")
         self.window_hide = Button(self.tk, relief=FLAT,
                           text="Hide to Tray", 
                           command=self.hideToTray,
@@ -226,7 +251,7 @@ class UI():
 
     def startLoop(self):
         global PROC
-        assert len(PROC) == 0, "Unknown process running"
+        logger("info", "Check button pressed")
         if self.entryAllEntered():
             self.check_start_btn['state'] = DISABLED
             self.repoInfo_owner_entry['state'] = DISABLED
@@ -234,24 +259,34 @@ class UI():
             self.repoInfo_branch_entry['state'] = DISABLED
             self.senderInfo_entry['state'] = DISABLED
             self.receiverInfo_entry['state'] = DISABLED
+            self.freq_min_spin['state'] = DISABLED
+            self.freq_hour_spin['state'] = DISABLED
             intervalSec = self.stringVars['hour'].get() * 60 * 60 + \
                           self.stringVars['min'].get() * 60
             try:
                 getNCommit(self.stringVars['owner'].get().strip(), 
                            self.stringVars['repo'].get().strip(), 
                            self.stringVars['branch'].get().strip())
+                logger("info", "Abled to run the process")
                 PROC.append(Process(target=periodicalCatcher, 
                             args=(self.stringVars['owner'].get().strip(), 
                                   self.stringVars['repo'].get().strip(), 
                                   self.stringVars['sender'].get().strip(), 
                                   self.stringVars['receiver'].get().strip(),
                                   self.stringVars['branch'].get().strip(), 
-                                  intervalSec)))
+                                  intervalSec, LOGS)))
                 PROC[0].start()
-                time.sleep(1)
+                VALs['owner'] = self.stringVars['owner'].get().strip()
+                VALs['repo'] = self.stringVars['repo'].get().strip()
+                VALs['branch'] = self.stringVars['branch'].get().strip()
+                VALs['receiver'] = self.stringVars['receiver'].get().strip()
+                VALs['sender'] = self.stringVars['sender'].get().strip()
+                VALs['hour'] = self.stringVars['hour'].get()
+                VALs['min'] = self.stringVars['min'].get()
+                sleep(1)
                 self.check_stop_btn['state'] = NORMAL
             except Exception as e:
-                print('Error encountered:', e)
+                logger("error", 'Error encountered: ' + str(e))
                 self.check_stop_btn['state'] = DISABLED
                 self.check_start_btn['state'] = NORMAL
                 self.repoInfo_owner_entry['state'] = NORMAL
@@ -259,21 +294,38 @@ class UI():
                 self.repoInfo_branch_entry['state'] = NORMAL
                 self.senderInfo_entry['state'] = NORMAL
                 self.receiverInfo_entry['state'] = NORMAL
+                self.freq_min_spin['state'] = NORMAL
+                self.freq_hour_spin['state'] = NORMAL
+
 
     def stopLoop(self):
         global PROC
-        assert len(PROC) == 1 and PROC[0].is_alive(), "The process is not normally running"
         self.check_stop_btn['state'] = DISABLED
-        PROC[0].terminate()
-        PROC[0].join()
-        del PROC[0]
-        time.sleep(1)
+        if len(PROC) == 1 and PROC[0].is_alive():
+            logger("info", "Stopping process normally")
+            PROC[0].terminate()
+            PROC[0].join()
+            del PROC[0]
+        elif len(PROC) == 1 and not PROC[0].is_alive():
+            logger("warning", "Process is not alive. Stop anyway.")
+            PROC[0].terminate()
+            PROC[0].join()
+            del PROC[0]
+        elif len(PROC) > 1:
+            logger("error", "Unknown number of process running. Stop them all.")
+            for p in PROC:
+                p.terminate()
+                p.join()
+            for i in range(len(PROC)):
+                del PROC[0]
+        sleep(1)
         self.check_start_btn['state'] = NORMAL
         self.repoInfo_owner_entry['state'] = NORMAL
         self.repoInfo_repo_entry['state'] = NORMAL
         self.repoInfo_branch_entry['state'] = NORMAL
         self.senderInfo_entry['state'] = NORMAL
         self.receiverInfo_entry['state'] = NORMAL
+        logger("info", "Successfully stopped")
 
     def entryAllEntered(self):
         allArgs = [self.stringVars['owner'].get().strip(), 
@@ -318,7 +370,7 @@ class UI():
                   selectbackground=COLORs['selBg'],
                   insertbackground=COLORs['txt'],
                   disabledbackground=COLORs['bg'],
-                  disabledforeground="#787878")
+                  disabledforeground=COLORs['dis'])
         e.place(anchor=SW, x=120, y=y, height=22, width=180)
         if setFocus:
             e.focus()
@@ -363,7 +415,53 @@ class directCheckUI():
         
     def destroyWindow(self):
         self.tk.destroy()
-        
+
+class statusBox():
+    def __init__(self, systray):
+        self.tk = Tk()
+        self.tk.focus_set()
+        self.tk.geometry('500x200-1-42')
+        self.tk.overrideredirect(True)
+        self.tk['bg'] = COLORs['bg']
+        self.tk.attributes("-alpha",0.95)
+        self.tk.bind("<FocusOut>", self.quit)
+        self.refresh()
+        self.refreshBtn = Button(self.tk, text='Refresh', relief=FLAT,
+                                 bg=COLORs['frmLine'], fg=COLORs['txt'], 
+                                 width=8, height=1, command=self.refresh,
+                                 font = Font(root=self.tk, family="Helvetica", 
+                                             size=11),
+                                 activebackground=COLORs['frmLine'], 
+                                 activeforeground=COLORs['txt'])
+        self.refreshBtn.place(anchor="ne", x=480, y=10)
+        self.tk.mainloop()
+
+    def quit(self, event):
+        self.tk.destroy()
+
+    def refresh(self):
+        global LOGS
+        if len(PROC) == 1 and PROC[0].is_alive():
+            l = f"Tracking {VALs['owner']}/{VALs['repo']} {VALs['branch']}"
+            self.label = Label(self.tk, text=l, bg=COLORs['bg'], 
+                               fg=COLORs['txt'], 
+                               font=Font(root=self.tk, family="Helvetica", 
+                                         size=11))
+        else:
+            self.label = Label(self.tk, text="Not running", bg=COLORs['bg'], 
+                               fg=COLORs['txt'], 
+                               font=Font(root=self.tk, family="Helvetica", 
+                                         size=11))
+        self.label.place(anchor="nw", x=20, y=12)
+        self.textFrame = Text(self.tk, bg='#0f1823', width=65, height=8,
+                              padx=5, pady=5, fg=COLORs['txt'], spacing1=2, 
+                              spacing2=1, spacing3=2, wrap='word',
+                              selectbackground=COLORs['selBg'], 
+                              highlightthickness=0, relief=FLAT)
+        self.textFrame.insert(END, '\n'.join(list(LOGS)))
+        self.textFrame.see(END)
+        self.textFrame.place(anchor=N, x=250,y=45)
+
 def centerWindow(win):
     """
     centers a tkinter window
@@ -407,10 +505,18 @@ def restoreUI(sysTrayIcon):
     if RUNNING[0] == False:
         UI(vals=VALs)
 
+def writeLogs():
+    global LOGS
+    logs = list(LOGS)
+    logIO = open('gUT.log', 'a')
+    logIO.write('\n'.join(logs) + '\n')
+    logIO.close()
+
 def on_quit_callback(systray):
     global PROC
     global ui
     global RUNNING
+    global LOGS
     if len(PROC) == 1 and PROC[0].is_alive():
         PROC[0].terminate()
         PROC[0].join()
@@ -418,16 +524,31 @@ def on_quit_callback(systray):
     elif len(PROC) == 0:
         pass
     else:
-        raise Exception("Abnormal process running status.")
+        logger("warning", "Abnormal process running status on quit. Exitting anyway.")
     if RUNNING[0]:
         ui[0].tk.quit()
+    writeLogs()
+
+def logger(level, *args):
+    global LOGS
+    body =  f"{strftime('%Y-%m-%d %H:%M')} - {level.upper()} - "
+    pieces = [str(i) for i in args]
+    msg = body + ' '.join(pieces)
+    stdout.write(msg + '\n')
+    LOGS.append(msg)
 
 def main():
-    menu_options = (("Show panel", None, restoreUI),)
+    logger("info", "Thanks for using this script.")
+    menu_options = (("Show panel", None, restoreUI),
+                    ("Show status log", None, statusBox))
     SYSTRAY.append(SysTrayIcon(None, "gitUpstreamTracker", menu_options,
                                on_quit=on_quit_callback))
     SYSTRAY[0].start()
     UI(vals=VALs)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  
+    freeze_support()
+    manager = Manager()
+    LOGS = manager.list()
     main()
+
