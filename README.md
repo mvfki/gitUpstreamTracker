@@ -1,6 +1,10 @@
 # gitUpstreamTracker
 
-This script is itended to help those developers who fork an upstream 
+> Well, one day I suddenly found by simply pressing the "Watch" button at the top right you can easily be noticed by GitHub system. This tool is not useful at all. Let's say, this is a nice practice of Python UI and Gmail API for myself.
+
+## Initial intention
+
+This script is intended to help those developers who fork an upstream 
 repository and make pull requests. It has been a problem for me that I 
 sometimes forget to merge upstream and therefore cause conflicts. The goal of 
 this script is to track a (public) repository and inform the developers when 
